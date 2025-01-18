@@ -24,13 +24,13 @@ course_pattern = re.compile(
 with pdfplumber.open("grd20243EN.pdf") as pdf:
     courses = []
     
-    for page in pdf.pages:
-        raw_data = page.extract_text(keep_blank_chars=False, layout=True)
-        clean_data = re.sub(r"\s{2,}", " ", raw_data)
+    for page in pdf.pages: # iterate through each page in the pdf
+        raw_data = page.extract_text(keep_blank_chars=False, layout=True) # extract text from the page
+        clean_data = re.sub(r"\s{2,}", " ", raw_data) # remove extra spaces to better format the data and match the regex pattern
 
         
-        for match in course_pattern.finditer(clean_data):
-            courses.append(
+        for match in course_pattern.finditer(clean_data): # iterate through each match in the page
+            courses.append( # append the matches to the courses list
                 {
                     "course": match.group("course"),
                     "professor": match.group("instructor").strip(),
