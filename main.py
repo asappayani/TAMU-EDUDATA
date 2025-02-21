@@ -1,10 +1,16 @@
 import pdfplumber 
 import re
 from pprint import pp
+import pymongo
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://localhost:27017/")
+db = client["tamu_gpa"]
+collection = db["gpa_distribution"]
 
 # REGEX PATTERN
 course_pattern = re.compile(
-    r"(?P<course>[A-Z]+-\d{3}-\d{3})\s+" # course and number
+    r"(?P<course>[A-Z]+-\d{3})-\d{3}\s+" # course and course number, skip the section number cuz we dont need dat
     r"(?P<A>\d+)\s+" # A grades
     r"(?P<B>\d+)\s+" # B grades
     r"(?P<C>\d+)\s+" # C grades
@@ -21,35 +27,44 @@ course_pattern = re.compile(
     r"(?P<instructor>[A-Za-z.,\s]+)" # professor name
 )
 
-with pdfplumber.open("grd20243EN.pdf") as pdf:
-    courses = []
+def extract_gpa_data(pdf_path, year, college):
+    """ 
+    Extracts GPA data from a PDF file and returns a dictionary
+    Args:
+        pdf_path (str): Path to the PDF file
+        year (int): Year of the data
+        college (str): College of the data
+    Returns: dict : Extracted data
+    """
+    with pdfplumber.open(pdf_path) as pdf:
+        courses = []
+
+        for page in pdf.pages:
+            raw_data = page.extract_text(keep_blank_chars=False, layout=True)
+            clean_data = re.sub(r"\s{2,}", " ", raw_data)
+
+            for match in course_pattern.finditer(clean_data):
+                courses.append(
+                    {
+                        "course": match.group("course"),
+                        "professor": match.group("instructor").strip(),
+                        "gpa": float(match.group("gpa")),
+                        "grades": {
+                            "A": int(match.group("A")), "B": int(match.group("B")), "C": int(match.group("C")), "D": int(match.group("D")), "F": int(match.group("F")), 
+                            "I": int(match.group("I")), "S": int(match.group("S")), "U": int(match.group("U")), "Q": int(match.group("Q")), "X": int(match.group("X"))
+                            },
+                        "total_students": int(match.group("total")),
+                    }
+                )
     
-    for page in pdf.pages: # iterate through each page in the pdf
-        raw_data = page.extract_text(keep_blank_chars=False, layout=True) # extract text from the page
-        clean_data = re.sub(r"\s{2,}", " ", raw_data) # remove extra spaces to better format the data and match the regex pattern
+    return {
+        "year": year,
+        "college": college,
+        "courses": courses
+    }
 
-        
-        for match in course_pattern.finditer(clean_data): # iterate through each match in the page
-            courses.append( # append the matches to the courses list
-                {
-                    "course": match.group("course"),
-                    "professor": match.group("instructor").strip(),
-                    "gpa": float(match.group("gpa")),
-                    "grades": {
-                        "A": int(match.group("A")),
-                        "B": int(match.group("B")),
-                        "C": int(match.group("C")),
-                        "D": int(match.group("D")),
-                        "F": int(match.group("F")),
-                        "I": int(match.group("I")),
-                        "S": int(match.group("S")),
-                        "U": int(match.group("U")),
-                        "Q": int(match.group("Q")),
-                        "X": int(match.group("X")),
-                    },
-                    "total_students": int(match.group("total"))
-                }
-            )
+data = extract_gpa_data("2024ENGR.pdf", 2024, "College of Engineering")
+collection.insert_one(data)
+print("Data inserted successfully!") 
 
-pp(courses)
 
