@@ -27,7 +27,7 @@ course_pattern = re.compile(
     r"(?P<instructor>[A-Za-z.,\s]+)" # professor name
 )
 
-def extract_gpa_data(pdf_path, year, college):
+def extract_gpa_data(pdf_path, semester, year, college):
     """ 
     Extracts GPA data from a PDF file and returns a dictionary
     Args:
@@ -59,11 +59,12 @@ def extract_gpa_data(pdf_path, year, college):
     
     return {
         "year": year,
+        "semester": semester,
         "college": college,
         "courses": courses
     }
 
-data = extract_gpa_data("2024ENGR.pdf", 2024, "College of Engineering")
+data = extract_gpa_data("2024FAMAYS.pdf", "Fall", 2024, "Mays Business School")
 collection.insert_one(data)
 print("Data inserted successfully!") 
 
