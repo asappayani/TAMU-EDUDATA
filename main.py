@@ -28,6 +28,7 @@ course_pattern = re.compile(
 )
 
 def extract_gpa_data(pdf_path, semester, year, college):
+    
     """ 
     Extracts GPA data from a PDF file and returns a dictionary
     Args:
@@ -36,6 +37,7 @@ def extract_gpa_data(pdf_path, semester, year, college):
         college (str): College of the data
     Returns: dict : Extracted data
     """
+
     with pdfplumber.open(pdf_path) as pdf:
         courses = []
 
@@ -64,8 +66,8 @@ def extract_gpa_data(pdf_path, semester, year, college):
         "courses": courses
     }
 
-data = extract_gpa_data("2024FAMAYS.pdf", "Fall", 2024, "Mays Business School")
-collection.insert_one(data)
-print("Data inserted successfully!") 
+# data = extract_gpa_data("2024FAMAYS.pdf", "Fall", 2024, "Mays Business School")
+# collection.insert_one(data)
+# print("Data inserted successfully!") 
 
 
