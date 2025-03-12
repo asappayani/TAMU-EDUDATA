@@ -29,7 +29,7 @@ class RMPScraper:
 
         print("Driver initialized")
 
-    def get_rmp_rating(self, prof, department):
+    def get_rmp_rating(self, prof, department=None):
         """ Gets the RateMyProfessor rating for a professor in a specific department """
 
         search_url = f"https://www.ratemyprofessors.com/search/professors/{self.id}?q={prof.replace(' ', '%20')}"
@@ -51,17 +51,35 @@ class RMPScraper:
                 rmp_fname, rmp_lname = name.text.strip().split(" ")[0].lower(), name.text.strip().split(" ")[1].lower()
 
                 # print(f"RMP: {rmp_fname} {rmp_lname} | {prof_fname} {prof_lname} | {uni.text} | {dep.text}")
-
-                if prof_fname in rmp_fname and prof_lname in rmp_lname and self.university.lower() in uni.text.strip().lower() and department.lower() in dep.text.strip().lower():
-                    return rating.text
+            if (prof_fname in rmp_fname and prof_lname in rmp_lname and self.university.lower() in uni.text.strip().lower() and (not department or department.lower() in dep.text.strip().lower())):
+                return rating.text.strip()     
 
         except Exception as e:
             print(f"Error: {e}")
             return "N/A"
         
         return "Rating N/A"
+    
+    def get_valid_departments(self):
+        """ Returns a list of valid departments """
+
+        search_url = f"https://www.tamu.edu/academics/colleges-schools/index.html"
+        self.driver.get(search_url) # open the search URL
+
+    
+    def check_valid_department(department, valid_departments):
+        """ Checks if the departments are valid """
+
+        if department not in valid_departments:
+            return False
+        
+        return True
+    
+
+        
+
             
 if __name__ == "__main__":
-    scraper = RMPScraper(1003, "Texas A&M University")
-    print(scraper.get_rmp_rating("KAYA A", "Physics"))
+    scraper = RMPScraper(994, "Tarleton State University")
+    print(scraper.get_rmp_rating("ABBOTT SHANNON", "English"))
     print("End of program")
