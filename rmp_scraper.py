@@ -2,14 +2,16 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pprint as pp
+import rapidfuzz
 
 class RMPScraper:
 
-    """A class to scrape RateMyProfessor data"""
+    #* """A class to scrape RateMyProfessor data"""
 
-    def __init__(self, id, university):
+    def __init__(self, id, university): #* constructor
 
-        """ Initializes the RMPScraper class and sets up the Chrome driver """
+        #* """ Initializes the RMPScraper class and sets up the Chrome driver """
 
         options = uc.ChromeOptions() # set up the Chrome options which in simple terms is the settings of the browser that you are using 
         options.add_argument("--disable-gpu")  
@@ -26,8 +28,46 @@ class RMPScraper:
         self.driver = uc.Chrome(options=options, headless=True) # create a new instance of the Chrome driver
         self.id = id 
         self.university = university
+        self.college_departments = self.__get_valid_departments()
 
         print("Driver initialized")
+
+    def __get_valid_departments(self): #* private method
+        """ Returns a list of valid departments """
+        try:
+            search_url = f"https://www.tamu.edu/academics/colleges-schools/index.html"
+            self.driver.get(search_url) # open the search URL
+            WebDriverWait(self.driver, 3).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".row.aux-container--fluid-mw"))
+            )           
+
+            schools = [school.get_attribute("href") for school in self.driver.find_elements(By.XPATH, "//aside/nav/ul/li/a")]
+            departments = set()
+
+            
+            for school in schools:
+                self.driver.get(school)
+                WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".row.aux-container--fluid-mw"))
+                )
+
+                departments.update([department.text.lower() for department in self.driver.find_elements(By.CSS_SELECTOR, 'td[data-label="Department"]')])
+            
+            return departments
+
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
+    
+    # TODO: Implement a better name matching algorithm
+    def __name_match_score(self, prof_name, rmp_name):
+        """ Returns the match score of the professor name and the RateMyProfessor name """
+        pass
+
+    # TODO: Implement a better department checking algorithm
+    def __check_valid_department(self, department, valid_departments):
+        """ Checks if the departments are valid """
+        pass
 
     def get_rmp_rating(self, prof, department=None):
         """ Gets the RateMyProfessor rating for a professor in a specific department """
@@ -45,13 +85,21 @@ class RMPScraper:
             prof_universities = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__School-sc-19lmz2k-1") # get all the universities of the profs
             prof_departments = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__Department-sc-19lmz2k-0") # get all the departments of the profs
 
-            prof_lname, prof_fname = prof.split(" ")[0].lower(), prof.split(" ")[1].lower()
+            # TODO: Implement a better name matching algorithm
+            if len(prof.split()) <= 2: # check if the professor has a middle name or a 2 word last name
+                prof_fname, prof_lname = prof.split(" ")[0].lower(), prof.split(" ")[-1].lower()
+            else:
+                prof_lname, prof_fname = " ".join(prof.split(" ")[0:-2]).lower(), prof.split(" ")[-1].lower()
 
             for name, rating, uni, dep in zip(prof_names, prof_ratings, prof_universities, prof_departments):
                 rmp_fname, rmp_lname = name.text.strip().split(" ")[0].lower(), name.text.strip().split(" ")[1].lower()
 
                 # print(f"RMP: {rmp_fname} {rmp_lname} | {prof_fname} {prof_lname} | {uni.text} | {dep.text}")
-            if (prof_fname in rmp_fname and prof_lname in rmp_lname and self.university.lower() in uni.text.strip().lower() and (not department or department.lower() in dep.text.strip().lower())):
+            if (prof_fname in rmp_fname and 
+                prof_lname in rmp_lname and 
+                self.university.lower() in uni.text.strip().lower() and 
+                (not department or department.lower() in dep.text.strip().lower())):
+
                 return rating.text.strip()     
 
         except Exception as e:
@@ -59,27 +107,9 @@ class RMPScraper:
             return "N/A"
         
         return "Rating N/A"
-    
-    def get_valid_departments(self):
-        """ Returns a list of valid departments """
-
-        search_url = f"https://www.tamu.edu/academics/colleges-schools/index.html"
-        self.driver.get(search_url) # open the search URL
-
-    
-    def check_valid_department(department, valid_departments):
-        """ Checks if the departments are valid """
-
-        if department not in valid_departments:
-            return False
-        
-        return True
-    
-
-        
-
             
 if __name__ == "__main__":
     scraper = RMPScraper(994, "Tarleton State University")
-    print(scraper.get_rmp_rating("ABBOTT SHANNON", "English"))
-    print("End of program")
+    pp.pprint(scraper.college_departments)
+    # print(scraper.get_rmp_rating("ABBOTT SHANNON", "English"))
+    # print("End of program")
