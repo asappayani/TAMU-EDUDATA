@@ -1,15 +1,16 @@
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pprint as pp
-import rapidfuzz
+from rapidfuzz import fuzz
 
 class RMPScraper:
 
-    #* """A class to scrape RateMyProfessor data"""
+    """A class to scrape RateMyProfessor data"""
 
-    def __init__(self, id, university): #* constructor
+    def __init__(self, id, university): # constructor
 
         #* """ Initializes the RMPScraper class and sets up the Chrome driver """
 
@@ -32,7 +33,7 @@ class RMPScraper:
 
         print("Driver initialized")
 
-    def __get_valid_departments(self): #* private method
+    def __get_valid_departments(self) -> set: # private method
         """ Returns a list of valid departments """
         try:
             search_url = f"https://www.tamu.edu/academics/colleges-schools/index.html"
@@ -59,48 +60,95 @@ class RMPScraper:
             print(f"Error: {e}")
             return None
     
-    # TODO: Implement a better name matching algorithm
-    def __name_match_score(self, prof_name, rmp_name):
-        """ Returns the match score of the professor name and the RateMyProfessor name """
-        pass
+    def process_professor_name(self, professor_name: str, format_name: bool = False, dash_handler: bool = False) -> str:
+        if len(professor_name.strip()) <= 2: # if the professor name is empty or has only one character
+            raise ValueError("process_professor_name: Professor name is invalid length")
+        
+        if ' ' not in professor_name: # if the professor name doesn't have a space
+            print(f"Professor name: {professor_name}")
+            raise ValueError("process_professor_name: Professor name is invalid, no space found")
+        
+        professor_name_parts = professor_name.lower().strip().split()
+        
+        if format_name and dash_handler: # return the first initial and the name before the dash
+            return f"{professor_name_parts[-1]} {professor_name_parts[0].split('-')[0]}" 
+            
+        elif format_name: # return the first initial and the last name
+            return f"{professor_name_parts[-1]} {' '.join(professor_name_parts[:-1])}" 
+        
+        else: # return the professor name as is
+            return professor_name.lower().strip()
+
+    # TODO: Implement a better name matching algorithm, dash handling (rmp doesn't register the dash when searching, find workaround), and two word last name handling
+    # TODO: also, the prof name on RMP may not even include the middle name or one of the words in the last name so we need to account for that
+
+    def get_name_match_score(self, prof_name: str, rmp_name: str) -> float: 
+        """ Returns the match score between the professor name and the RateMyProfessor name """
+        try:
+            prof_first_initial, prof_last_name = prof_name.split(" ")[0], ' '.join(prof_name.split(" ")[1:])
+            rmp_first_name, rmp_last_name = rmp_name.split(" ")[0], ' '.join(rmp_name.split(" ")[1:])
+
+            if prof_first_initial != rmp_first_name[0]:
+                return 0.0
+            
+            return fuzz.ratio(prof_last_name, rmp_last_name)    
+            
+        except ValueError as e: 
+            if e == "process_professor_name: Professor name is invalid, no space found": # the name passed might just be the last name, handle that before returning anything
+                rmp_last_name = rmp_name.split(" ")[1]
+
+                return fuzz.ratio(prof_name, rmp_last_name)
+            
+            else:
+                print(f"Error: {e}")
+                return 0.0
 
     # TODO: Implement a better department checking algorithm
-    def __check_valid_department(self, department, valid_departments):
+    def check_valid_department(self, department: str, valid_departments: set) -> bool:
         """ Checks if the departments are valid """
-        pass
+        for valid_department in valid_departments:
+            if fuzz.ratio(department, valid_department) >= 95:
+                return True
+        
+        return False
 
-    def get_rmp_rating(self, prof, department=None):
+    def get_rmp_rating(self, professor: str, department: str = None) -> str:
         """ Gets the RateMyProfessor rating for a professor in a specific department """
+        try:
+            if '-' in professor: # handle the case where the professor name has a dash
+                professor_query = self.process_professor_name(professor, format_name=True, dash_handler=True)
+            else:
+                professor_query = self.process_professor_name(professor, format_name=True)
+        except ValueError as e:
+            print(f"Error: {e}")
+            return "Rating N/A"
 
-        search_url = f"https://www.ratemyprofessors.com/search/professors/{self.id}?q={prof.replace(' ', '%20')}"
-        self.driver.get(search_url) # open the search URL
+        # open the web page
+        search_url = f"https://www.ratemyprofessors.com/search/professors/{self.id}?q={professor_query.replace(' ', '%20')}"
+        self.driver.get(search_url) 
         
         try:
-            WebDriverWait(self.driver, 3).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a[href*="/professor/"]')) # wait for the page to load
-            ) 
+            WebDriverWait(self.driver, 3).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a[href*="/professor/"]')) ) # wait for the page to load
 
-            prof_names = self.driver.find_elements(By.CSS_SELECTOR, ".CardName__StyledCardName-sc-1gyrgim-0") # get all the prof names
-            prof_ratings = self.driver.find_elements(By.CSS_SELECTOR, ".CardNumRating__CardNumRatingNumber-sc-17t4b9u-2") # get all the prof ratings
-            prof_universities = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__School-sc-19lmz2k-1") # get all the universities of the profs
-            prof_departments = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__Department-sc-19lmz2k-0") # get all the departments of the profs
+            rmp_prof_names = self.driver.find_elements(By.CSS_SELECTOR, ".CardName__StyledCardName-sc-1gyrgim-0") # get all the prof names
+            rmp_prof_ratings = self.driver.find_elements(By.CSS_SELECTOR, ".CardNumRating__CardNumRatingNumber-sc-17t4b9u-2") # get all the prof ratings
+            rmp_prof_universities = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__School-sc-19lmz2k-1") # get all the universities of the profs
+            rmp_prof_departments = self.driver.find_elements(By.CSS_SELECTOR, ".CardSchool__Department-sc-19lmz2k-0") # get all the departments of the profs
 
-            # TODO: Implement a better name matching algorithm
-            if len(prof.split()) <= 2: # check if the professor has a middle name or a 2 word last name
-                prof_fname, prof_lname = prof.split(" ")[0].lower(), prof.split(" ")[-1].lower()
-            else:
-                prof_lname, prof_fname = " ".join(prof.split(" ")[0:-2]).lower(), prof.split(" ")[-1].lower()
+            professor = self.process_professor_name(professor, format_name=True) # format the professor name, keeps the dash if it exists
 
-            for name, rating, uni, dep in zip(prof_names, prof_ratings, prof_universities, prof_departments):
-                rmp_fname, rmp_lname = name.text.strip().split(" ")[0].lower(), name.text.strip().split(" ")[1].lower()
+            for name, rating, uni, dep in zip(rmp_prof_names, rmp_prof_ratings, rmp_prof_universities, rmp_prof_departments):
 
-                # print(f"RMP: {rmp_fname} {rmp_lname} | {prof_fname} {prof_lname} | {uni.text} | {dep.text}")
-            if (prof_fname in rmp_fname and 
-                prof_lname in rmp_lname and 
-                self.university.lower() in uni.text.strip().lower() and 
-                (not department or department.lower() in dep.text.strip().lower())):
+                name = self.process_professor_name(name.text)
+                name_match_score = self.get_name_match_score(professor, name)
+                is_department_valid = self.check_valid_department(dep.text.strip().lower(), self.college_departments)
 
-                return rating.text.strip()     
+                if (name_match_score >= 70 and 
+                    self.university.lower() in uni.text.strip().lower() and 
+                    (not is_department_valid or is_department_valid and department.lower() in dep.text.strip().lower())):  # Adjusted to ensure department check works
+
+                    print(f"Name: {name}, Score: {name_match_score}")
+                    return rating.text.strip()     
 
         except Exception as e:
             print(f"Error: {e}")
@@ -109,7 +157,12 @@ class RMPScraper:
         return "Rating N/A"
             
 if __name__ == "__main__":
-    scraper = RMPScraper(994, "Tarleton State University")
-    pp.pprint(scraper.college_departments)
+    scraper = RMPScraper(1003, "Texas A&M University")
+    print(scraper.get_rmp_rating("BECKER A", "INFORMATION & OPERATIONS MGMT"))
+
+    # print(scraper.process_professor_name("GUTIERREZ-OSUNA R", format_name=True, dash_handler=True))
+    # print(scraper.process_professor_name("CRUZADO GARCIA A", format_name=True))
+    # print(scraper.get_name_match_score(scraper.process_professor_name("KOUFTEROS X", format_name=True), scraper.process_professor_name("Xenophon Koufteros")))
+    #pp.pprint(scraper.college_departments)
     # print(scraper.get_rmp_rating("ABBOTT SHANNON", "English"))
     # print("End of program")
