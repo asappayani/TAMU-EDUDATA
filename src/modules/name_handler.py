@@ -1,28 +1,24 @@
 import rapidfuzz as fuzz
 
 def dash_handler(name: str) -> str:
-    # TODO: split the name by the dash and return the part before the dash
-    pass
+    ''' Handles the dash in the professor name for RMP query '''
+    return name.split('-')[0]
 
 def process_professor_name(name: str, query: bool = False) -> str:
-    """
-    Cases: 
-    1. Last name then first initial
-    2. Last name with dash then first initial
-    3. Last name with two words then first initial
-    4. Just last name
-    TODO: Put the first initial at the front, then put everything else after
-    TODO: SPECIAL CASE: if the name is just the last name, return the last name
+    ''' Process the professor name for comparison or query '''
+
+    if ' ' not in name: # case 4 check
+        return name.lower().strip()
     
-    SPECIAL CASE, query is true:
-    everything should be same but,
-    TODO: send the last name to dash handler so that the dash is removed and we return first initial with just the first part of last name before the dash
-    """
-    pass
+    name_parts = name.split()
+    first_initial = name_parts[-1][0] # get the first initial
+    last_name = dash_handler(' '.join(name_parts[:-1])) if query else ' '.join(name_parts[:-1]) # handle the dash if query is True
+
+    return f"{first_initial} {last_name}".lower().strip()
 
 def process_rmprofessor_name(name: str) -> str:
-    # TODO: lower and strip the name and return it
-    pass
+    ''' Lower and strip the RMP professor name for comparison '''
+    return name.lower().strip()
 
 def get_name_match_score(prof_name: str, rmp_name: str) -> float:
     """
