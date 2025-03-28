@@ -33,7 +33,7 @@ class RMPScraper:
 
         print("Driver initialized")
 
-    def __get_valid_departments(self) -> set: # private method
+    def __get_valid_departments(self) -> set: # private method 
         """ Returns a list of valid departments """
         try:
             search_url = f"https://www.tamu.edu/academics/colleges-schools/index.html"
@@ -127,9 +127,9 @@ class RMPScraper:
                 professor_query = self.process_professor_name(professor, format_name=True, dash_handler=True)
             else:
                 professor_query = self.process_professor_name(professor, format_name=True)
-        except ValueError as e:
-            print(f"Error: {e}")
-            return "Rating N/A"
+        except ValueError as e: 
+                if e == "process_professor_name: Professor name is invalid, no space found":
+                    professor_query = professor # the professor name passed is just the last name
 
         # open the web page
         search_url = f"https://www.ratemyprofessors.com/search/professors/{self.id}?q={professor_query.replace(' ', '%20')}"

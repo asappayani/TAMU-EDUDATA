@@ -13,10 +13,10 @@ ratings_collection = db["professor_ratings"]
 
 # header regex pattern
 header_pattern = re.compile(
-    r"FOR\s+(?P<semester>[A-Z]+)\s+(?P<year>\d{4})\s+.*?"
-    r"COLLEGE:\s*(?P<college>[A-Z &]+(?: [A-Z]+)*)\s+"
-    r"DEPARTMENT:\s*(?P<department>[A-Z &]+(?: [A-Z]+)*)\s+TOTAL",
-    re.DOTALL
+    r"FOR\s*(?P<semester>[A-Z]+)\s*(?P<year>\d{4})\s*.*?\s*"
+    r"COLLEGE:\s*(?P<college>[A-Z &\/-]+(?: [A-Z&\/-]+)*)\s+"
+    r"DEPARTMENT:\s*(?P<department>[A-Z &\/-]+(?: [A-Z&\/-]+)*)\s+TOTAL S",
+    re.DOTALL | re.IGNORECASE
 )
 
 # course regex pattern
@@ -114,7 +114,7 @@ def extract_gpa_data(pdf_path, scraper=None, db_collection=None, ratings_collect
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             raw_data = page.extract_text(keep_blank_chars=False, layout=True)
-            clean_data = re.sub(r"\s{2,}", " ", raw_data)
+            clean_data = re.sub(r"\s{2,}", " ", raw_data).strip()
             
             # Extract header data from the page (assuming it can change per page)
             header_data = extract_header_data(clean_data)
@@ -140,19 +140,29 @@ def extract_gpa_data(pdf_path, scraper=None, db_collection=None, ratings_collect
 
 rmpscraper = rmp_scraper.RMPScraper("1003", "Texas A&M University")
 
+# with pdfplumber.open("2024FALL_AGRI.pdf") as pdf:
+#     for page in pdf.pages:
+#         raw_data = page.extract_text(keep_blank_chars=False, layout=True)
+#         clean_data = re.sub(r"\s{2,}", " ", raw_data).strip()
+#         print(repr(clean_data))
+
+#         pp(extract_header_data(clean_data))
+
 for folder in os.listdir("SEMESTERS"):
     for pdf_file in os.listdir(os.path.join("SEMESTERS", folder)):
         if pdf_file.endswith(".pdf"):
             pdf_path = os.path.join("SEMESTERS", folder, pdf_file)
+            try:
+                extract_gpa_data(
+                    pdf_path,
+                    scraper=rmpscraper,
+                    db_collection=gpa_collection,
+                    ratings_collection=ratings_collection
+                )
 
-            extract_gpa_data(
-                pdf_path,
-                scraper=rmpscraper,
-                db_collection=gpa_collection,
-                ratings_collection=ratings_collection
-            )
-
-            print(f"Data from {pdf_file} inserted successfully!")
+                print(f"Data from {pdf_file} inserted successfully!")
+            except Exception as e:
+                print(f"Error processing {pdf_file}: {e}")
 
 
 
