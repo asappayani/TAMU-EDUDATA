@@ -2,7 +2,7 @@ import pdfplumber
 import re
 from pprint import pp
 from pymongo import MongoClient
-import rmp_scraper
+import src.old.rmp_scraper as rmp_scraper
 import os
 
 
@@ -35,7 +35,7 @@ course_pattern = re.compile(
     r"(?P<Q>\d+)\s+" # course dropped with no penalty, no grade points, hours not included in GPA calculation
     r"(?P<X>\d+)\s+" # no grade submitted, no grade points, hours not included in GPA calculation
     r"\d+\s+" # skip the repeated total student value 
-    r"(?P<instructor>[A-Za-z.,\s-]+)" # professor name
+    r"(?P<instructor>[A-Za-z.,\s'\-]+)"
 )
 
 valid_departments = []
