@@ -1,62 +1,58 @@
-import rapidfuzz as fuzz
+from rapidfuzz import fuzz
 from typing import Tuple, Union
 
-def dash_handler(name: str) -> str:
-    ''' Handles the dash in the professor name for RMP query '''
+
+def __dash_handler(name: str) -> str:
+    """ Handles the dash in the professor name for RMP query. """
     return name.split('-')[0]
 
-def process_professor_name(name: str, query: bool = False) -> Union[str, Tuple[str, str]]:
-    ''' Process the professor name for comparison or query '''
 
-    if ' ' not in name: # case 4 check
-        return (None, name.lower().strip()) if not query else name.lower().strip()
-    
-    name_parts = name.split()
-    first_initial = name_parts[-1][0] # get the first initial
-    last_name = dash_handler(' '.join(name_parts[:-1])) if query else ' '.join(name_parts[:-1]) # handle the dash if query is True
+def __process_rmprofessor_name(name: str) -> tuple[str, str]:
+    """ Process the RateMyProfessor name for comparison. """
+    cleaned_name = name.lower().strip()
+    name_parts = cleaned_name.split()
 
-    if query:
-        return f"{first_initial} {last_name}".lower().strip() 
-    else:
-        return (
-            first_initial.lower().strip(), 
-            last_name.lower().strip()
-        )
-
-def process_rmprofessor_name(name: str) -> tuple[str, str]:
-    ''' Process the RateMyProfessor name for comparison '''
-    name_parts = name.split()
     first_initial = name_parts[0][0] # get the first initial
     last_name = ' '.join(name_parts[1:]) # get the last name
 
-    return (
-        first_initial.lower().strip(), 
-        last_name.lower().strip()
-    )
+    return (first_initial, last_name)
+
+
+def process_professor_name(name: str, query: bool = False) -> Union[str, Tuple[str, str]]:
+    """ Process the professor name for comparison or query. """
+    cleaned_name = name.lower().strip()
+
+    if ' ' not in name: # case 4 check
+        return (None, cleaned_name) if not query else cleaned_name
+    
+    name_parts = cleaned_name.split()
+    first_initial = name_parts[-1][0] # get the first initial
+    last_name = __dash_handler(' '.join(name_parts[:-1])) if query else ' '.join(name_parts[:-1])
+
+    return f"{first_initial} {last_name}" if query else (first_initial, last_name)
+
 
 def get_name_match_score(prof_name: str, rmp_name: str) -> float:
-    ''' Returns the match score between the professor name and the RateMyProfessor name '''
+    """ Returns the rapidfuzz match score between the professor name and the RateMyProfessor name. """
     prof_first_initial, prof_last_name = process_professor_name(prof_name)
-    rmprof_first_initial, rmprof_last_name = process_rmprofessor_name(rmp_name)
+    rmprof_first_initial, rmprof_last_name = __process_rmprofessor_name(rmp_name)
 
-    if prof_first_initial is None: # case 4
+    if prof_first_initial is None: # Case 4
         return fuzz.ratio(prof_last_name, rmprof_last_name)
 
-    if prof_first_initial != rmprof_first_initial: # case 1
+    if prof_first_initial != rmprof_first_initial: # Case 1
         return 0.0
     
-    if len(prof_last_name) < len(rmprof_last_name) or len(rmprof_last_name) < len(prof_last_name): # case 2
+    if len(prof_last_name) != len(prof_last_name): # Case 2
         return fuzz.partial_ratio(prof_last_name, rmprof_last_name)
-    else: # case 3
-        return fuzz.ratio(prof_last_name, rmprof_last_name)
     
+    # Case 3
+    return fuzz.ratio(prof_last_name, rmprof_last_name)
 
 
-def get_department_name_match_score(department: str, valid_departments: set) -> bool:
-    """
-    Cases:
-    1. If the department is in the valid departments, return True
-    2. If the department is not in the valid departments, return False
-    3. If the department is not in the valid departments but is close to one of them, return True
-    """
-    pass
+def get_department_name_match_score(professor_department: str, rmprofessor_department: str) -> float:
+    """ Returns the match score between the professor department and the RateMyProfessor department. """
+
+    score = fuzz.ratio(professor_department.lower().strip(), rmprofessor_department.lower().strip())
+    return score if score >= 85 else 0.0
+
