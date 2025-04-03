@@ -6,10 +6,10 @@ from pymongo import MongoClient
 import os
 from typing import Dict, Collection, Union
 
-client = MongoClient("mongodb://localhost:27017/")
-db = client["tamu_gpa"]
-gpa_collection = db["gpa_distribution"]
-rmp_ratings_collection = db["professor_ratings"]
+CLIENT = MongoClient("mongodb://localhost:27017/")
+DB = CLIENT["tamu_gpa"]
+GPA_COLLETION = DB["gpa_distribution"]
+RMP_RATINGS_COLLECTION = DB["professor_ratings"]
 
 HEADER_PATTERN = re.compile(
     r"FOR\s*(?P<semester>[A-Z]+)\s*(?P<year>\d{4})\s*.*?\s*" # semester and year
@@ -85,7 +85,7 @@ def extract_course_data(pdf_path: str, rmp_scraper: rmp_scraper, gpa_collection:
 
             if existing_document:
                 document_id = existing_document["_id"]
-            else:
+            else: # insert a new document if it doesn't exist
                 document_id = gpa_collection.insert_one({
                     "semester": header_data["semester"],
                     "year": header_data["year"],
@@ -102,6 +102,26 @@ def extract_course_data(pdf_path: str, rmp_scraper: rmp_scraper, gpa_collection:
                     {"_id": document_id},
                     {"$addToSet": {"courses": course_data}}
                 )
+
+
+scraper = rmp_scraper.RMPScraper()
+
+for semester in os.listdir("data"):
+    for pdf in os.listdir(os.path.join("data", semester)):
+        if pdf.endswith(".pdf"):
+            pdf_path = os.path.join("data", semester, pdf)
+            try:
+                extract_course_data(
+                    pdf_path,
+                    scraper,
+                    GPA_COLLETION,
+                    RMP_RATINGS_COLLECTION
+                )
+
+                print(f"Data from {pdf} inserted successfully!")
+            except Exception as e:
+                print(f"Error processing {pdf}: {e}")
+
 
 
 
