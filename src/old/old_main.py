@@ -106,7 +106,7 @@ def extract_gpa_data(pdf_path, scraper=None, db_collection=None, ratings_collect
         db_collection (optional): MongoDB collection object where data will be stored.
     
     Returns:
-        dict: Document ID of the inserted data in MongoDB.
+        None
     """
  # Initialize a document in MongoDB with empty courses array
     document_id = None

@@ -4,12 +4,12 @@ import re
 from pprint import pp
 from pymongo import MongoClient
 import os
-from typing import Collection, Optional, Dict
+from typing import Dict, Collection, Union
 
 client = MongoClient("mongodb://localhost:27017/")
 db = client["tamu_gpa"]
 gpa_collection = db["gpa_distribution"]
-ratings_collection = db["professor_ratings"]
+rmp_ratings_collection = db["professor_ratings"]
 
 HEADER_PATTERN = re.compile(
     r"FOR\s*(?P<semester>[A-Z]+)\s*(?P<year>\d{4})\s*.*?\s*" # semester and year
@@ -17,6 +17,7 @@ HEADER_PATTERN = re.compile(
     r"DEPARTMENT:\s*(?P<department>[A-Z &,\.\/-]+(?: [A-Z&,\.\/-]+)*)\s+TOTAL S", # department name
     re.DOTALL | re.IGNORECASE
 )
+
 
 COURSE_PATTERN = re.compile(
     r"(?P<course>[A-Z]+-\d{3})-\d{3}\s+"  # course code without section number
@@ -27,6 +28,7 @@ COURSE_PATTERN = re.compile(
     r"(?P<instructor>[A-Za-z.,\s'\-]+)"  # instructor's name
 )
 
+
 def parse_header_info(clean_data):
     match = HEADER_PATTERN.search(clean_data)
     return {
@@ -36,17 +38,72 @@ def parse_header_info(clean_data):
         "department": match.group("department")
     }
 
-def extract_course_data(match: re.Match, department: str, scraper: Optional[object] = None, ratings_collection: Optional[Collection] = None) -> Dict:
-    professor = match.group("instructor").strip()
 
+def format_course_data(match: re.Match, department: str) -> Dict:
     return {
         "course": match.group("course"),
-        "professor": professor,
+        "professor": match.group("instructor").strip(),
         "gpa": float(match.group("gpa")),
         "grades": {grade: int(match.group(grade)) for grade in ["A", "B", "C", "D", "F", "I", "S", "U", "Q", "X"]},
         "total_students": int(match.group("total")),
         "department": department
     }
+
+
+def fetch_professor_rating(professor_name: str, department: str, rmp_scraper: rmp_scraper, ratings_collection: Collection) -> Union[float, str]:
+
+    # check if the professor's rating is already in the database
+    existing_rating = ratings_collection.find_one({"professor": professor_name, "department": department})
+    if existing_rating:
+        return existing_rating.get("rating", "N/A")
+    
+    # fetch the rating from RateMyProfessor using the scraper, put it in the database
+    rating = rmp_scraper.get_professor_rating(professor_name, department)
+    ratings_collection.insert_one({
+        "professor": professor_name,
+        "department": department,
+        "rating": rating
+    })
+
+    return rating
+    
+
+def extract_course_data(pdf_path: str, rmp_scraper: rmp_scraper, gpa_collection: Collection, rmp_rating_collection: Collection) -> None:
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            # extract the needed data
+            raw_data = page.extract_text()
+            clean_data = re.sub(r"\s{2,}", " ", raw_data).strip()
+            header_data = parse_header_info(clean_data)
+
+            # check if the pdf we're on already exists in the database
+            existing_document = gpa_collection.find_one({
+                "semester": header_data["semester"],
+                "year": header_data["year"],
+                "department": header_data["department"]
+            })
+
+            if existing_document:
+                document_id = existing_document["_id"]
+            else:
+                document_id = gpa_collection.insert_one({
+                    "semester": header_data["semester"],
+                    "year": header_data["year"],
+                    "college": header_data["college"],
+                    "courses": []
+                }).inserted_id
+
+            # add each course data to the database
+            for match in COURSE_PATTERN.finditer(clean_data):
+                course_data = format_course_data(match, header_data["department"])
+                course_data["rating"] = fetch_professor_rating(course_data["professor"], header_data["department"], rmp_scraper, rmp_rating_collection)
+
+                gpa_collection.update_one(
+                    {"_id": document_id},
+                    {"$addToSet": {"courses": course_data}}
+                )
+
+
 
 # TESTING
 # for filename in os.listdir("data/2024FALL"):

@@ -32,7 +32,7 @@ class RMPScraper:
         print("Scraper initialized.")
 
 
-    def get_professor_rating(self, professor_name: str, department: str) -> Union[float, str]:
+    def scrape_professor_rating(self, professor_name: str, department: str) -> Union[float, str]:
         """ Returns the rating of the professor. """
 
         search_url = f"https://www.ratemyprofessors.com/search/professors/{self.university_id}?q={process_professor_name(professor_name, query=True).replace(' ', '%20')}"
@@ -61,7 +61,7 @@ class RMPScraper:
             
 if __name__ == "__main__":
     scraper = RMPScraper()
-    print(scraper.get_professor_rating("AUSTIN A", "Mathematics"))
+    print(scraper.scrape_professor_rating("AUSTIN A", "Mathematics"))
 
             
 
