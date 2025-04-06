@@ -54,7 +54,7 @@ def get_department_name_match_score(professor_department: str, rmprofessor_depar
     """ Returns the match score between the professor department and the RateMyProfessor department. """
 
     score = fuzz.ratio(professor_department.lower().strip(), rmprofessor_department.lower().strip())
-    return score if score >= 80 else 0.0
+    return score 
 
 if __name__ == "__main__":
     # Test the functions

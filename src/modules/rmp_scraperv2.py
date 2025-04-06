@@ -55,8 +55,11 @@ class RMPScraper:
             name_match_score = get_name_match_score(professor_name, rmprof_name.text) 
             department_match_score = get_department_name_match_score(department, rmprof_department.text)
 
-            if name_match_score >= 80 and (department_match_score >= 80 or department_match_score == 0) and \
-                self.university.lower() in rmprof_university.text.lower():
+            if name_match_score >= 80 and (
+                department_match_score >= 70 or 
+                department.lower() in rmprof_department.text.lower() or 
+                rmprof_department.text.lower() in department.lower()
+            ) and self.university.lower() in rmprof_university.text.lower():
                 print(f"Prof Name: {professor_name} | RMP Name: {rmprof_name.text} | Score: {name_match_score}")
                 return float(rmprof_rating.text.strip())
             
