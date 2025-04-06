@@ -3,7 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pprint as pp
-from name_handler import process_professor_name, get_name_match_score, get_department_name_match_score
+from .name_handler import process_professor_name, get_name_match_score, get_department_name_match_score
 from typing import Union
 
 class RMPScraper:
@@ -34,13 +34,16 @@ class RMPScraper:
 
     def scrape_professor_rating(self, professor_name: str, department: str) -> Union[float, str]:
         """ Returns the rating of the professor. """
-
         search_url = f"https://www.ratemyprofessors.com/search/professors/{self.university_id}?q={process_professor_name(professor_name, query=True).replace(' ', '%20')}"
         self.driver.get(search_url) 
 
         # wait for the page to load
-        WebDriverWait(self.driver, 4).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a[href*="/professor/"]'))) 
+        try:
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/professor/"]')))
+        except Exception as e:
+            print("Error loading page for", professor_name)
 
+            return "No rating found."
         # get the professor information off the page
         rmprof_names = self.driver.find_elements(By.CSS_SELECTOR, ".CardName__StyledCardName-sc-1gyrgim-0") 
         rmprof_ratings = self.driver.find_elements(By.CSS_SELECTOR, ".CardNumRating__CardNumRatingNumber-sc-17t4b9u-2")
@@ -52,27 +55,14 @@ class RMPScraper:
             name_match_score = get_name_match_score(professor_name, rmprof_name.text) 
             department_match_score = get_department_name_match_score(department, rmprof_department.text)
 
-            if name_match_score >= 85 and (department_match_score >= 85 or department_match_score == 0) and \
+            if name_match_score >= 80 and (department_match_score >= 80 or department_match_score == 0) and \
                 self.university.lower() in rmprof_university.text.lower():
                 print(f"Prof Name: {professor_name} | RMP Name: {rmprof_name.text} | Score: {name_match_score}")
                 return float(rmprof_rating.text.strip())
             
         return "No rating found." 
-            
+        
+
 if __name__ == "__main__":
     scraper = RMPScraper()
     print(scraper.scrape_professor_rating("AUSTIN A", "Mathematics"))
-
-            
-
-            
-
-
-    
-
-
-
-
-   
-
-    

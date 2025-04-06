@@ -23,7 +23,7 @@ def process_professor_name(name: str, query: bool = False) -> Union[str, Tuple[s
     cleaned_name = name.lower().strip()
 
     if ' ' not in name: # case 4 check
-        return (None, cleaned_name) if not query else cleaned_name
+        return (None, cleaned_name) if not query else __dash_handler(cleaned_name)
     
     name_parts = cleaned_name.split()
     first_initial = name_parts[-1][0] # get the first initial
@@ -54,5 +54,9 @@ def get_department_name_match_score(professor_department: str, rmprofessor_depar
     """ Returns the match score between the professor department and the RateMyProfessor department. """
 
     score = fuzz.ratio(professor_department.lower().strip(), rmprofessor_department.lower().strip())
-    return score if score >= 85 else 0.0
+    return score if score >= 80 else 0.0
 
+if __name__ == "__main__":
+    # Test the functions
+    print(process_professor_name("KATEHI-TSEREGOUNS", query=True)) # Expected: "K Tsergounis"
+   
